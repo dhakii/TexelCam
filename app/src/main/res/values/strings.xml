@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">TexelCam</string>
+    <string name="density_512">512 px/m</string>
+    <string name="density_1024">1024 px/m</string>
+    <string name="density_2048">2048 px/m</string>
+    <string name="density_4096">4096 px/m</string>
+    <string name="mode_wall">WALL</string>
+    <string name="mode_floor">FLOOR</string>
+</resources>
