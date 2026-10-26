@@ -189,6 +189,40 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
+        <!-- Pro Features Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+            <Button
+                android:id="@+id/btnAeAfLock"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_margin="2dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_pill_unselected"
+                android:fontFamily="sans-serif-bold"
+                android:text="AE/AF UNLOCKED"
+                android:textColor="@color/white"
+                android:textSize="11sp" />
+            <Button
+                android:id="@+id/btnAutoCapture"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_margin="2dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_pill_unselected"
+                android:fontFamily="sans-serif-bold"
+                android:text="AUTO: OFF"
+                android:textColor="@color/white"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+
         <!-- Main Bottom Actions Row -->
         <LinearLayout
             android:layout_width="match_parent"

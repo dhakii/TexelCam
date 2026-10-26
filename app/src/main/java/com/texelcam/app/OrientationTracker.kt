@@ -50,11 +50,18 @@ class OrientationTracker(
         set(value) {
             field = value
             wasAligned = false
+            emaPitch = null
+            emaRoll = null
         }
 
     private var wasAligned: Boolean = false
     private val rotationMatrix = FloatArray(9)
     private val orientationAngles = FloatArray(3)
+
+    private var emaPitch: Float? = null
+    private var emaRoll: Float? = null
+    private val alpha = 0.2f // Smoothing factor
+
 
     fun start() {
         rotationSensor?.let {
@@ -97,25 +104,24 @@ class OrientationTracker(
     }
 
     private fun processAngles(pitchDeg: Float, rollDeg: Float) {
+        emaPitch = if (emaPitch == null) pitchDeg else emaPitch!! + alpha * (pitchDeg - emaPitch!!)
+        emaRoll = if (emaRoll == null) rollDeg else emaRoll!! + alpha * (rollDeg - emaRoll!!)
+
         val pitchError: Float
         val rollError: Float
 
         when (currentMode) {
             SurfaceMode.WALL -> {
-                // Held vertical facing wall:
-                // Pitch target is -90 or +90 depending on orientation (portrait upright is pitch ~ -90 or +90)
-                // Let's compute deviation from vertical:
-                val devFromVertical = 90.0f - kotlin.math.abs(pitchDeg)
+                val devFromVertical = 90.0f - kotlin.math.abs(emaPitch!!)
                 pitchError = devFromVertical
-                rollError = rollDeg
+                rollError = emaRoll!!
             }
             SurfaceMode.FLOOR -> {
-                // Held horizontal facing down:
-                // Screen horizontal: pitch ~ 0, roll ~ 0
-                pitchError = pitchDeg
-                rollError = rollDeg
+                pitchError = emaPitch!!
+                rollError = emaRoll!!
             }
         }
+
 
         val totalDev = sqrt((pitchError * pitchError + rollError * rollError).toDouble()).toFloat()
         val isAligned = totalDev <= 0.8f // within 0.8 degrees of pure perpendicular

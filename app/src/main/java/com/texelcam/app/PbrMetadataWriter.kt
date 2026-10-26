@@ -1,5 +1,6 @@
 package com.texelcam.app
 
+import android.content.Context
 import org.json.JSONObject
 import java.io.File
 import java.io.FileWriter
@@ -24,10 +25,11 @@ object PbrMetadataWriter {
         val sensorHeightMm: Float
     )
 
-    fun writeSidecarFiles(meta: CaptureMetadata): Pair<File, File>? {
+    fun writeSidecarFiles(context: Context, meta: CaptureMetadata): Pair<File, File>? {
         return try {
             val baseName = meta.imageFile.nameWithoutExtension
-            val dir = meta.imageFile.parentFile ?: return null
+            // We use the app-specific external files dir to reliably write JSONs next to each other
+            val dir = context.getExternalFilesDir(null) ?: context.filesDir
 
             val isoDate = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(Date())
 

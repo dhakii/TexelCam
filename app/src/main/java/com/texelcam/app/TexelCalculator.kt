@@ -43,22 +43,22 @@ object TexelCalculator {
      * Physical horizontal width in meters framed at distance D (meters):
      * W_real = D * (sensorWidth / focalLength)
      */
-    fun computePhysicalWidth(distanceMeters: Float, sensorWidthMm: Float, focalLengthMm: Float): Float {
+    fun computePhysicalWidth(distanceMeters: Float, sensorWidthMm: Float, focalLengthMm: Float, zoomRatio: Float = 1.0f): Float {
         val d = if (distanceMeters > 0.05f) distanceMeters else 0.5f
         val fl = if (focalLengthMm > 0.1f) focalLengthMm else DEFAULT_FOCAL_LENGTH_MM
         val sw = if (sensorWidthMm > 0.1f) sensorWidthMm else DEFAULT_SENSOR_WIDTH_MM
-        return d * (sw / fl)
+        return d * (sw / (fl * zoomRatio))
     }
 
     /**
      * Physical vertical height in meters framed at distance D (meters):
      * H_real = D * (sensorHeight / focalLength)
      */
-    fun computePhysicalHeight(distanceMeters: Float, sensorHeightMm: Float, focalLengthMm: Float): Float {
+    fun computePhysicalHeight(distanceMeters: Float, sensorHeightMm: Float, focalLengthMm: Float, zoomRatio: Float = 1.0f): Float {
         val d = if (distanceMeters > 0.05f) distanceMeters else 0.5f
         val fl = if (focalLengthMm > 0.1f) focalLengthMm else DEFAULT_FOCAL_LENGTH_MM
         val sh = if (sensorHeightMm > 0.1f) sensorHeightMm else DEFAULT_SENSOR_HEIGHT_MM
-        return d * (sh / fl)
+        return d * (sh / (fl * zoomRatio))
     }
 
     /**
@@ -78,12 +78,13 @@ object TexelCalculator {
         targetDensityPxPerM: Float,
         imageWidthPx: Int,
         sensorWidthMm: Float,
-        focalLengthMm: Float
+        focalLengthMm: Float,
+        zoomRatio: Float = 1.0f
     ): Float {
         val t = if (targetDensityPxPerM > 10f) targetDensityPxPerM else 1024f
         val fl = if (focalLengthMm > 0.1f) focalLengthMm else DEFAULT_FOCAL_LENGTH_MM
         val sw = if (sensorWidthMm > 0.1f) sensorWidthMm else DEFAULT_SENSOR_WIDTH_MM
-        return (imageWidthPx * fl) / (t * sw)
+        return (imageWidthPx * (fl * zoomRatio)) / (t * sw)
     }
 
     /**
