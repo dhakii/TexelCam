@@ -27,6 +27,11 @@ class TexelHudView @JvmOverloads constructor(
     private var targetDensity: Int = 2048
     private var autoCaptureProgress: Float = 0f
 
+    // Focus Reticle State
+    private var focusX: Float = -1f
+    private var focusY: Float = -1f
+    private var focusTime: Long = 0
+
     // Paints
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -68,6 +73,13 @@ class TexelHudView @JvmOverloads constructor(
     private val badgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
         color = Color.parseColor("#CC181A20")
+    }
+
+    fun showFocusIndicator(x: Float, y: Float) {
+        this.focusX = x
+        this.focusY = y
+        this.focusTime = System.currentTimeMillis()
+        invalidate()
     }
 
     fun updateAutoCaptureProgress(progress: Float) {
@@ -112,6 +124,11 @@ class TexelHudView @JvmOverloads constructor(
         // 3. Draw Auto-Capture Countdown
         if (autoCaptureProgress > 0f) {
             drawAutoCaptureArc(canvas, cx, cy)
+        }
+
+        // 4. Draw Focus Reticle
+        if (focusTime > 0) {
+            drawFocusReticle(canvas)
         }
     }
 
@@ -256,5 +273,51 @@ class TexelHudView @JvmOverloads constructor(
         // Horizontal lines
         canvas.drawLine(0f, thirdH, w, thirdH, gridPaint)
         canvas.drawLine(0f, thirdH * 2f, w, thirdH * 2f, gridPaint)
+    }
+
+    private fun drawFocusReticle(canvas: Canvas) {
+        val elapsed = System.currentTimeMillis() - focusTime
+        if (elapsed > 1000) {
+            focusTime = 0
+            return
+        }
+
+        // Fade out over the last 500ms
+        val alpha = if (elapsed < 500) 255 else (255 * (1f - (elapsed - 500) / 500f)).toInt()
+
+        val focusPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 4f
+            color = Color.parseColor("#FFD600")
+            this.alpha = alpha
+        }
+
+        val size = 60f
+
+        // Draw square brackets
+        val corner = 20f
+
+        // Top Left
+        canvas.drawLine(focusX - size, focusY - size, focusX - size + corner, focusY - size, focusPaint)
+        canvas.drawLine(focusX - size, focusY - size, focusX - size, focusY - size + corner, focusPaint)
+
+        // Top Right
+        canvas.drawLine(focusX + size, focusY - size, focusX + size - corner, focusY - size, focusPaint)
+        canvas.drawLine(focusX + size, focusY - size, focusX + size, focusY - size + corner, focusPaint)
+
+        // Bottom Left
+        canvas.drawLine(focusX - size, focusY + size, focusX - size + corner, focusY + size, focusPaint)
+        canvas.drawLine(focusX - size, focusY + size, focusX - size, focusY + size - corner, focusPaint)
+
+        // Bottom Right
+        canvas.drawLine(focusX + size, focusY + size, focusX + size - corner, focusY + size, focusPaint)
+        canvas.drawLine(focusX + size, focusY + size, focusX + size, focusY + size - corner, focusPaint)
+
+        // Center dot
+        focusPaint.style = Paint.Style.FILL
+        canvas.drawCircle(focusX, focusY, 4f, focusPaint)
+
+        // Keep invalidating while we animate out
+        postInvalidateOnAnimation()
     }
 }

@@ -28,19 +28,25 @@
         app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- Top Guidance & Status Card -->
-    <LinearLayout
+    <com.google.android.material.card.MaterialCardView
         android:id="@+id/topCard"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginTop="36dp"
         android:layout_marginEnd="16dp"
-        android:background="@drawable/bg_control_card"
-        android:orientation="vertical"
-        android:padding="12dp"
+        app:cardBackgroundColor="@color/panel_surface"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="8dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -78,22 +84,29 @@
             android:text="HOLD PERPENDICULAR TO SURFACE"
             android:textColor="@color/accent_neon_yellow"
             android:textSize="13sp" />
-    </LinearLayout>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
     <!-- Bottom Thumb-Friendly Control Bar -->
-    <LinearLayout
+    <com.google.android.material.card.MaterialCardView
         android:id="@+id/bottomControlPanel"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="12dp"
         android:layout_marginEnd="12dp"
         android:layout_marginBottom="24dp"
-        android:background="@drawable/bg_control_card"
-        android:orientation="vertical"
-        android:padding="12dp"
+        app:cardBackgroundColor="@color/panel_surface"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="8dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toBottomOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
 
         <!-- Target Density Pills -->
         <LinearLayout
@@ -102,7 +115,7 @@
             android:gravity="center"
             android:orientation="horizontal">
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDensity512"
                 style="?android:attr/borderlessButtonStyle"
                 android:layout_width="0dp"
@@ -115,7 +128,7 @@
                 android:textColor="@color/white"
                 android:textSize="12sp" />
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDensity1024"
                 style="?android:attr/borderlessButtonStyle"
                 android:layout_width="0dp"
@@ -128,7 +141,7 @@
                 android:textColor="@color/white"
                 android:textSize="12sp" />
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDensity2048"
                 style="?android:attr/borderlessButtonStyle"
                 android:layout_width="0dp"
@@ -141,7 +154,7 @@
                 android:textColor="@color/black"
                 android:textSize="12sp" />
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDensity4096"
                 style="?android:attr/borderlessButtonStyle"
                 android:layout_width="0dp"
@@ -196,7 +209,7 @@
             android:layout_marginTop="8dp"
             android:gravity="center"
             android:orientation="horizontal">
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnAeAfLock"
                 style="?android:attr/borderlessButtonStyle"
                 android:layout_width="0dp"
@@ -208,7 +221,7 @@
                 android:text="AE/AF UNLOCKED"
                 android:textColor="@color/white"
                 android:textSize="11sp" />
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnAutoCapture"
                 style="?android:attr/borderlessButtonStyle"
                 android:layout_width="0dp"
@@ -232,7 +245,7 @@
             android:orientation="horizontal">
 
             <!-- Mode Switch (Wall vs Floor) -->
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSurfaceMode"
                 style="?android:attr/borderlessButtonStyle"
                 android:layout_width="72dp"
@@ -262,7 +275,7 @@
                 android:layout_weight="1" />
 
             <!-- Torch / Flashlight Toggle -->
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnTorch"
                 style="?android:attr/borderlessButtonStyle"
                 android:layout_width="72dp"
@@ -274,6 +287,7 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
-    </LinearLayout>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

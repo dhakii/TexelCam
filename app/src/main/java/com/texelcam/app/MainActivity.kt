@@ -160,11 +160,13 @@ class MainActivity : AppCompatActivity() {
         binding.btnAeAfLock.setOnClickListener {
             isAeAfLocked = !isAeAfLocked
             if (isAeAfLocked) {
-                // Lock focus and exposure
-                camera?.cameraControl?.cancelFocusAndMetering()
+                // Lock focus: Tap-to-focus already locks it. This button just prevents future taps from breaking it,
+                // or if we had a manual API we would use it here.
                 binding.btnAeAfLock.text = "AE/AF LOCKED"
                 binding.btnAeAfLock.setTextColor(ContextCompat.getColor(this, R.color.accent_neon_yellow))
             } else {
+                // Unlock: Reset to continuous auto-focus
+                camera?.cameraControl?.cancelFocusAndMetering()
                 binding.btnAeAfLock.text = "AE/AF UNLOCKED"
                 binding.btnAeAfLock.setTextColor(Color.WHITE)
             }
@@ -267,6 +269,9 @@ class MainActivity : AppCompatActivity() {
                     val point = factory.createPoint(e.x, e.y)
                     val action = FocusMeteringAction.Builder(point).build()
                     camera?.cameraControl?.startFocusAndMetering(action)
+
+                    binding.hudView.showFocusIndicator(e.x, e.y)
+
                     return true
                 }
             })
@@ -381,18 +386,7 @@ class MainActivity : AppCompatActivity() {
         val photoFile = File(outputDir, fileName)
 
 
-        val contentValues = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
-                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/TexelCam")
-            }
-        }
-        val outputOptions = ImageCapture.OutputFileOptions.Builder(
-            contentResolver,
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            contentValues
-        ).build()
+        val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
 
         imageCap.takePicture(
             outputOptions,

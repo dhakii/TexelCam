@@ -50,18 +50,11 @@ class OrientationTracker(
         set(value) {
             field = value
             wasAligned = false
-            emaPitch = null
-            emaRoll = null
         }
 
     private var wasAligned: Boolean = false
     private val rotationMatrix = FloatArray(9)
     private val orientationAngles = FloatArray(3)
-
-    private var emaPitch: Float? = null
-    private var emaRoll: Float? = null
-    private val alpha = 0.2f // Smoothing factor
-
 
     fun start() {
         rotationSensor?.let {
@@ -104,24 +97,25 @@ class OrientationTracker(
     }
 
     private fun processAngles(pitchDeg: Float, rollDeg: Float) {
-        emaPitch = if (emaPitch == null) pitchDeg else emaPitch!! + alpha * (pitchDeg - emaPitch!!)
-        emaRoll = if (emaRoll == null) rollDeg else emaRoll!! + alpha * (rollDeg - emaRoll!!)
-
         val pitchError: Float
         val rollError: Float
 
         when (currentMode) {
             SurfaceMode.WALL -> {
-                val devFromVertical = 90.0f - kotlin.math.abs(emaPitch!!)
+                // Held vertical facing wall:
+                // Pitch target is -90 or +90 depending on orientation (portrait upright is pitch ~ -90 or +90)
+                // Let's compute deviation from vertical:
+                val devFromVertical = 90.0f - kotlin.math.abs(pitchDeg)
                 pitchError = devFromVertical
-                rollError = emaRoll!!
+                rollError = rollDeg
             }
             SurfaceMode.FLOOR -> {
-                pitchError = emaPitch!!
-                rollError = emaRoll!!
+                // Held horizontal facing down:
+                // Screen horizontal: pitch ~ 0, roll ~ 0
+                pitchError = pitchDeg
+                rollError = rollDeg
             }
         }
-
 
         val totalDev = sqrt((pitchError * pitchError + rollError * rollError).toDouble()).toFloat()
         val isAligned = totalDev <= 0.8f // within 0.8 degrees of pure perpendicular
@@ -147,8 +141,10 @@ class OrientationTracker(
 
     private fun triggerHapticClick() {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createOneShot(25, VibrationEffect.DEFAULT_AMPLITUDE))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                vibrator.vibrate(android.os.VibrationEffect.createPredefined(android.os.VibrationEffect.EFFECT_CLICK))
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(android.os.VibrationEffect.createOneShot(25, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
             } else {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(25)

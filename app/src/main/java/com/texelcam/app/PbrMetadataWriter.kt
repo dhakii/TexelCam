@@ -28,8 +28,7 @@ object PbrMetadataWriter {
     fun writeSidecarFiles(context: Context, meta: CaptureMetadata): Pair<File, File>? {
         return try {
             val baseName = meta.imageFile.nameWithoutExtension
-            // We use the app-specific external files dir to reliably write JSONs next to each other
-            val dir = context.getExternalFilesDir(null) ?: context.filesDir
+            val dir = meta.imageFile.parentFile ?: return null
 
             val isoDate = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(Date())
 
