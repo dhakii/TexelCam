@@ -1,5 +1,6 @@
 package com.texelcam.app
 
+import android.content.Context
 import org.json.JSONObject
 import java.io.File
 import java.io.FileWriter
@@ -24,7 +25,7 @@ object PbrMetadataWriter {
         val sensorHeightMm: Float
     )
 
-    fun writeSidecarFiles(meta: CaptureMetadata): Pair<File, File>? {
+    fun writeSidecarFiles(context: Context, meta: CaptureMetadata): Pair<File, File>? {
         return try {
             val baseName = meta.imageFile.nameWithoutExtension
             val dir = meta.imageFile.parentFile ?: return null

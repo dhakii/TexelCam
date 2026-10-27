@@ -19,7 +19,13 @@ import android.util.Size
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import android.view.ScaleGestureDetector
+import android.view.GestureDetector
+import android.view.MotionEvent
+import androidx.camera.core.FocusMeteringAction
+import androidx.camera.core.SurfaceOrientedMeteringPointFactory
 import android.widget.Button
+import com.texelcam.app.databinding.ActivityMainBinding
 import android.widget.ImageButton
 import android.widget.SeekBar
 import android.widget.TextView
@@ -47,20 +53,12 @@ import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var binding: ActivityMainBinding
+
     private lateinit var cameraExecutor: ExecutorService
     private var imageCapture: ImageCapture? = null
     private var camera: Camera? = null
 
-    private lateinit var viewFinder: PreviewView
-    private lateinit var hudView: TexelHudView
-    private lateinit var tvLiveDensity: TextView
-    private lateinit var tvDistance: TextView
-    private lateinit var tvGuidance: TextView
-    private lateinit var tvManualDistVal: TextView
-    private lateinit var sbDistance: SeekBar
-    private lateinit var btnShutter: ImageButton
-    private lateinit var btnSurfaceMode: Button
-    private lateinit var btnTorch: Button
     private lateinit var densityButtons: List<Button>
 
     private lateinit var orientationTracker: OrientationTracker
@@ -73,6 +71,14 @@ class MainActivity : AppCompatActivity() {
     private var imageWidthPx: Int = 4000
     private var imageHeightPx: Int = 3000
 
+    private var zoomRatio: Float = 1.0f
+
+    private var isAeAfLocked: Boolean = false
+
+    private var isAutoCaptureEnabled: Boolean = false
+    private var perfectAlignmentStartTime: Long = 0
+    private var isCapturing: Boolean = false
+
     private var currentDistanceMeters: Float = 0.85f
     private var isManualDistance: Boolean = false
     private var targetDensity: Int = 2048
@@ -80,7 +86,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         hideSystemUI()
 
@@ -94,24 +101,14 @@ class MainActivity : AppCompatActivity() {
         } else {
             ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
         }
+
     }
 
     private fun initViews() {
-        viewFinder = findViewById(R.id.viewFinder)
-        hudView = findViewById(R.id.hudView)
-        tvLiveDensity = findViewById(R.id.tvLiveDensity)
-        tvDistance = findViewById(R.id.tvDistance)
-        tvGuidance = findViewById(R.id.tvGuidance)
-        tvManualDistVal = findViewById(R.id.tvManualDistVal)
-        sbDistance = findViewById(R.id.sbDistance)
-        btnShutter = findViewById(R.id.btnShutter)
-        btnSurfaceMode = findViewById(R.id.btnSurfaceMode)
-        btnTorch = findViewById(R.id.btnTorch)
-
-        val btn512 = findViewById<Button>(R.id.btnDensity512)
-        val btn1024 = findViewById<Button>(R.id.btnDensity1024)
-        val btn2048 = findViewById<Button>(R.id.btnDensity2048)
-        val btn4096 = findViewById<Button>(R.id.btnDensity4096)
+        val btn512 = binding.btnDensity512
+        val btn1024 = binding.btnDensity1024
+        val btn2048 = binding.btnDensity2048
+        val btn4096 = binding.btnDensity4096
         densityButtons = listOf(btn512, btn1024, btn2048, btn4096)
 
         btn512.setOnClickListener { setTargetDensity(512, btn512) }
@@ -119,14 +116,14 @@ class MainActivity : AppCompatActivity() {
         btn2048.setOnClickListener { setTargetDensity(2048, btn2048) }
         btn4096.setOnClickListener { setTargetDensity(4096, btn4096) }
 
-        sbDistance.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        binding.sbDistance.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 if (fromUser) {
                     isManualDistance = true
                     // Progress 10..250 maps to 0.10m..2.50m
                     val dist = (progress.coerceAtLeast(10)) / 100f
                     currentDistanceMeters = dist
-                    tvManualDistVal.text = String.format(Locale.US, "%.2fm*", dist)
+                    binding.tvManualDistVal.text = String.format(Locale.US, "%.2fm*", dist)
                     updateMetrics()
                 }
             }
@@ -134,34 +131,61 @@ class MainActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
 
-        btnSurfaceMode.setOnClickListener {
+        binding.btnSurfaceMode.setOnClickListener {
             val newMode = if (orientationTracker.currentMode == SurfaceMode.WALL) {
                 SurfaceMode.FLOOR
             } else {
                 SurfaceMode.WALL
             }
             orientationTracker.currentMode = newMode
-            btnSurfaceMode.text = newMode.name
-            btnSurfaceMode.setTextColor(
+            binding.btnSurfaceMode.text = newMode.name
+            binding.btnSurfaceMode.setTextColor(
                 if (newMode == SurfaceMode.FLOOR) ContextCompat.getColor(this, R.color.accent_neon_green)
                 else Color.WHITE
             )
         }
 
-        btnTorch.setOnClickListener {
+        binding.btnTorch.setOnClickListener {
             isTorchOn = !isTorchOn
             camera?.cameraControl?.enableTorch(isTorchOn)
-            btnTorch.setTextColor(
+            binding.btnTorch.setTextColor(
                 if (isTorchOn) ContextCompat.getColor(this, R.color.accent_neon_yellow)
                 else Color.WHITE
             )
         }
 
-        btnShutter.setOnClickListener {
+        binding.btnShutter.setOnClickListener {
             takePhoto()
         }
-    }
+        binding.btnAeAfLock.setOnClickListener {
+            isAeAfLocked = !isAeAfLocked
+            if (isAeAfLocked) {
+                // Lock focus: Tap-to-focus already locks it. This button just prevents future taps from breaking it,
+                // or if we had a manual API we would use it here.
+                binding.btnAeAfLock.text = "AE/AF LOCKED"
+                binding.btnAeAfLock.setTextColor(ContextCompat.getColor(this, R.color.accent_neon_yellow))
+            } else {
+                // Unlock: Reset to continuous auto-focus
+                camera?.cameraControl?.cancelFocusAndMetering()
+                binding.btnAeAfLock.text = "AE/AF UNLOCKED"
+                binding.btnAeAfLock.setTextColor(Color.WHITE)
+            }
+        }
 
+        binding.btnAutoCapture.setOnClickListener {
+            isAutoCaptureEnabled = !isAutoCaptureEnabled
+            if (isAutoCaptureEnabled) {
+                binding.btnAutoCapture.text = "AUTO: ON"
+                binding.btnAutoCapture.setTextColor(ContextCompat.getColor(this, R.color.accent_neon_green))
+            } else {
+                binding.btnAutoCapture.text = "AUTO: OFF"
+                binding.btnAutoCapture.setTextColor(Color.WHITE)
+                perfectAlignmentStartTime = 0
+                binding.hudView.updateAutoCaptureProgress(0f)
+            }
+        }
+
+    }
     private fun setTargetDensity(density: Int, selectedBtn: Button) {
         targetDensity = density
         for (btn in densityButtons) {
@@ -177,10 +201,11 @@ class MainActivity : AppCompatActivity() {
         orientationTracker = OrientationTracker(this) { state ->
             lastAlignmentState = state
             runOnUiThread {
-                hudView.updateOrientation(state.pitchErrorDeg, state.rollErrorDeg, state.isAligned)
+                binding.hudView.updateOrientation(state.pitchErrorDeg, state.rollErrorDeg, state.isAligned)
                 updateMetrics()
             }
         }
+
     }
 
     @SuppressLint("UnsafeOptInUsageError")
@@ -207,8 +232,8 @@ class MainActivity : AppCompatActivity() {
                             val computedDist = (1.0f / focusDistanceDiopters).coerceIn(0.1f, 5.0f)
                             runOnUiThread {
                                 currentDistanceMeters = computedDist
-                                tvManualDistVal.text = String.format(Locale.US, "%.2fm", computedDist)
-                                sbDistance.progress = (computedDist * 100).toInt().coerceIn(0, 250)
+                                binding.tvManualDistVal.text = String.format(Locale.US, "%.2fm", computedDist)
+                                binding.sbDistance.progress = (computedDist * 100).toInt().coerceIn(0, 250)
                                 updateMetrics()
                             }
                         }
@@ -217,8 +242,46 @@ class MainActivity : AppCompatActivity() {
             })
 
             val preview = previewBuilder.build().also {
-                it.setSurfaceProvider(viewFinder.surfaceProvider)
+                it.setSurfaceProvider(binding.viewFinder.surfaceProvider)
             }
+
+            // Pinch-to-zoom
+            val scaleGestureDetector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                override fun onScale(detector: ScaleGestureDetector): Boolean {
+                    val currentZoomRatio = camera?.cameraInfo?.zoomState?.value?.zoomRatio ?: 1f
+                    val delta = detector.scaleFactor
+                    val newZoom = currentZoomRatio * delta
+                    camera?.cameraControl?.setZoomRatio(newZoom)
+
+                    // Update our tracked zoom
+                    zoomRatio = newZoom
+                    updateMetrics()
+                    return true
+                }
+            })
+
+            val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+                override fun onSingleTapUp(e: MotionEvent): Boolean {
+                    val factory = SurfaceOrientedMeteringPointFactory(
+                        binding.viewFinder.width.toFloat(),
+                        binding.viewFinder.height.toFloat()
+                    )
+                    val point = factory.createPoint(e.x, e.y)
+                    val action = FocusMeteringAction.Builder(point).build()
+                    camera?.cameraControl?.startFocusAndMetering(action)
+
+                    binding.hudView.showFocusIndicator(e.x, e.y)
+
+                    return true
+                }
+            })
+
+            binding.viewFinder.setOnTouchListener { _, event ->
+                scaleGestureDetector.onTouchEvent(event)
+                gestureDetector.onTouchEvent(event)
+                true
+            }
+
 
             imageCapture = ImageCapture.Builder()
                 .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
@@ -259,33 +322,58 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateMetrics() {
-        val physW = TexelCalculator.computePhysicalWidth(currentDistanceMeters, sensorWidthMm, focalLengthMm)
-        val physH = TexelCalculator.computePhysicalHeight(currentDistanceMeters, sensorHeightMm, focalLengthMm)
+        val physW = TexelCalculator.computePhysicalWidth(currentDistanceMeters, sensorWidthMm, focalLengthMm, zoomRatio)
+        val physH = TexelCalculator.computePhysicalHeight(currentDistanceMeters, sensorHeightMm, focalLengthMm, zoomRatio)
+
         val liveDensity = TexelCalculator.computeTexelDensity(imageWidthPx, physW).roundToInt()
 
-        tvLiveDensity.text = "TD: $liveDensity px/m"
-        tvDistance.text = String.format(Locale.US, "Dist: %.2f m", currentDistanceMeters)
+        binding.tvLiveDensity.text = "TD: $liveDensity px/m"
+        binding.tvDistance.text = String.format(Locale.US, "Dist: %.2f m", currentDistanceMeters)
 
         val targetDist = TexelCalculator.computeRequiredDistance(
             targetDensity.toFloat(),
             imageWidthPx,
             sensorWidthMm,
-            focalLengthMm
+            focalLengthMm,
+            zoomRatio
         )
 
         val guidance = TexelCalculator.getStepGuidance(currentDistanceMeters, targetDist, targetDensity)
-        tvGuidance.text = guidance.message
+        binding.tvGuidance.text = guidance.message
 
         val isAligned = lastAlignmentState?.isAligned == true
         if (isAligned && guidance.isOptimal) {
-            tvGuidance.setTextColor(ContextCompat.getColor(this, R.color.accent_neon_green))
+            binding.tvGuidance.setTextColor(ContextCompat.getColor(this, R.color.accent_neon_green))
         } else if (guidance.isOptimal) {
-            tvGuidance.setTextColor(ContextCompat.getColor(this, R.color.accent_neon_cyan))
+            binding.tvGuidance.setTextColor(ContextCompat.getColor(this, R.color.accent_neon_cyan))
         } else {
-            tvGuidance.setTextColor(ContextCompat.getColor(this, R.color.accent_neon_yellow))
+            binding.tvGuidance.setTextColor(ContextCompat.getColor(this, R.color.accent_neon_yellow))
         }
 
-        hudView.updateMetrics(currentDistanceMeters, physW, physH, targetDensity)
+        binding.hudView.updateMetrics(currentDistanceMeters, physW, physH, targetDensity)
+
+        // Smart Auto-Capture Logic
+        if (isAutoCaptureEnabled && !isCapturing) {
+            if (isAligned && guidance.isOptimal) {
+                if (perfectAlignmentStartTime == 0L) {
+                    perfectAlignmentStartTime = System.currentTimeMillis()
+                }
+
+                val elapsed = System.currentTimeMillis() - perfectAlignmentStartTime
+                val progress = (elapsed / 1500f).coerceIn(0f, 1f)
+                binding.hudView.updateAutoCaptureProgress(progress)
+
+                if (elapsed >= 1500L) {
+                    isCapturing = true
+                    perfectAlignmentStartTime = 0
+                    binding.hudView.updateAutoCaptureProgress(0f)
+                    takePhoto()
+                }
+            } else {
+                perfectAlignmentStartTime = 0
+                binding.hudView.updateAutoCaptureProgress(0f)
+            }
+        }
     }
 
     private fun takePhoto() {
@@ -297,6 +385,7 @@ class MainActivity : AppCompatActivity() {
         val outputDir = getOutputDirectory()
         val photoFile = File(outputDir, fileName)
 
+
         val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
 
         imageCap.takePicture(
@@ -306,13 +395,14 @@ class MainActivity : AppCompatActivity() {
                 override fun onError(exc: ImageCaptureException) {
                     Log.e("TexelCam", "Photo capture failed: ${exc.message}", exc)
                     runOnUiThread {
+                        isCapturing = false
                         Toast.makeText(this@MainActivity, "Capture failed: ${exc.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
 
                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                    val physW = TexelCalculator.computePhysicalWidth(currentDistanceMeters, sensorWidthMm, focalLengthMm)
-                    val physH = TexelCalculator.computePhysicalHeight(currentDistanceMeters, sensorHeightMm, focalLengthMm)
+                    val physW = TexelCalculator.computePhysicalWidth(currentDistanceMeters, sensorWidthMm, focalLengthMm, zoomRatio)
+                    val physH = TexelCalculator.computePhysicalHeight(currentDistanceMeters, sensorHeightMm, focalLengthMm, zoomRatio)
                     val currentTd = TexelCalculator.computeTexelDensity(imageWidthPx, physW)
 
                     val meta = PbrMetadataWriter.CaptureMetadata(
@@ -330,9 +420,10 @@ class MainActivity : AppCompatActivity() {
                         sensorHeightMm = sensorHeightMm
                     )
 
-                    val sidecars = PbrMetadataWriter.writeSidecarFiles(meta)
+                    val sidecars = PbrMetadataWriter.writeSidecarFiles(this@MainActivity, meta)
 
                     runOnUiThread {
+                        isCapturing = false
                         val msg = if (sidecars != null) {
                             "Saved: $fileName + .combine.json"
                         } else {
@@ -370,6 +461,7 @@ class MainActivity : AppCompatActivity() {
                 finish()
             }
         }
+
     }
 
     override fun onResume() {
@@ -405,6 +497,7 @@ class MainActivity : AppCompatActivity() {
                 or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
             )
         }
+
     }
 
     companion object {

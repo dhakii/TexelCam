@@ -25,6 +25,12 @@ class TexelHudView @JvmOverloads constructor(
     private var physicalHeightMeters: Float = 1.35f
     private var currentDistanceMeters: Float = 0.85f
     private var targetDensity: Int = 2048
+    private var autoCaptureProgress: Float = 0f
+
+    // Focus Reticle State
+    private var focusX: Float = -1f
+    private var focusY: Float = -1f
+    private var focusTime: Long = 0
 
     // Paints
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -69,6 +75,18 @@ class TexelHudView @JvmOverloads constructor(
         color = Color.parseColor("#CC181A20")
     }
 
+    fun showFocusIndicator(x: Float, y: Float) {
+        this.focusX = x
+        this.focusY = y
+        this.focusTime = System.currentTimeMillis()
+        invalidate()
+    }
+
+    fun updateAutoCaptureProgress(progress: Float) {
+        this.autoCaptureProgress = progress
+        invalidate()
+    }
+
     fun updateOrientation(pitchError: Float, rollError: Float, aligned: Boolean) {
         this.pitchErrorDeg = pitchError
         this.rollErrorDeg = rollError
@@ -94,11 +112,24 @@ class TexelHudView @JvmOverloads constructor(
         val cx = w / 2f
         val cy = h / 2f
 
+        // 0. Rule of Thirds Grid
+        drawRuleOfThirdsGrid(canvas, w, h)
+
         // 1. Draw 1-Meter Projected Framing Box
         drawOneMeterReticle(canvas, cx, cy, w, h)
 
         // 2. Draw Bullseye Perpendicularity Level
         drawBullseyeLevel(canvas, cx, cy)
+
+        // 3. Draw Auto-Capture Countdown
+        if (autoCaptureProgress > 0f) {
+            drawAutoCaptureArc(canvas, cx, cy)
+        }
+
+        // 4. Draw Focus Reticle
+        if (focusTime > 0) {
+            drawFocusReticle(canvas)
+        }
     }
 
     private fun drawOneMeterReticle(canvas: Canvas, cx: Float, cy: Float, w: Float, h: Float) {
@@ -209,5 +240,84 @@ class TexelHudView @JvmOverloads constructor(
         // Center dot
         bubblePaint.color = Color.WHITE
         canvas.drawCircle(cx, cy, 3f, bubblePaint)
+    }
+
+    private fun drawAutoCaptureArc(canvas: Canvas, cx: Float, cy: Float) {
+        val radius = 100f
+        val rect = android.graphics.RectF(cx - radius, cy - radius, cx + radius, cy + radius)
+
+        val arcPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = 8f
+            strokeCap = android.graphics.Paint.Cap.ROUND
+            color = android.graphics.Color.parseColor("#00E676")
+        }
+
+        canvas.drawArc(rect, -90f, 360f * autoCaptureProgress, false, arcPaint)
+    }
+
+    private fun drawRuleOfThirdsGrid(canvas: Canvas, w: Float, h: Float) {
+        val gridPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = 2f
+            color = android.graphics.Color.parseColor("#33FFFFFF")
+        }
+
+        val thirdW = w / 3f
+        val thirdH = h / 3f
+
+        // Vertical lines
+        canvas.drawLine(thirdW, 0f, thirdW, h, gridPaint)
+        canvas.drawLine(thirdW * 2f, 0f, thirdW * 2f, h, gridPaint)
+
+        // Horizontal lines
+        canvas.drawLine(0f, thirdH, w, thirdH, gridPaint)
+        canvas.drawLine(0f, thirdH * 2f, w, thirdH * 2f, gridPaint)
+    }
+
+    private fun drawFocusReticle(canvas: Canvas) {
+        val elapsed = System.currentTimeMillis() - focusTime
+        if (elapsed > 1000) {
+            focusTime = 0
+            return
+        }
+
+        // Fade out over the last 500ms
+        val alpha = if (elapsed < 500) 255 else (255 * (1f - (elapsed - 500) / 500f)).toInt()
+
+        val focusPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 4f
+            color = Color.parseColor("#FFD600")
+            this.alpha = alpha
+        }
+
+        val size = 60f
+
+        // Draw square brackets
+        val corner = 20f
+
+        // Top Left
+        canvas.drawLine(focusX - size, focusY - size, focusX - size + corner, focusY - size, focusPaint)
+        canvas.drawLine(focusX - size, focusY - size, focusX - size, focusY - size + corner, focusPaint)
+
+        // Top Right
+        canvas.drawLine(focusX + size, focusY - size, focusX + size - corner, focusY - size, focusPaint)
+        canvas.drawLine(focusX + size, focusY - size, focusX + size, focusY - size + corner, focusPaint)
+
+        // Bottom Left
+        canvas.drawLine(focusX - size, focusY + size, focusX - size + corner, focusY + size, focusPaint)
+        canvas.drawLine(focusX - size, focusY + size, focusX - size, focusY + size - corner, focusPaint)
+
+        // Bottom Right
+        canvas.drawLine(focusX + size, focusY + size, focusX + size - corner, focusY + size, focusPaint)
+        canvas.drawLine(focusX + size, focusY + size, focusX + size, focusY + size - corner, focusPaint)
+
+        // Center dot
+        focusPaint.style = Paint.Style.FILL
+        canvas.drawCircle(focusX, focusY, 4f, focusPaint)
+
+        // Keep invalidating while we animate out
+        postInvalidateOnAnimation()
     }
 }
